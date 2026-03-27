@@ -77,17 +77,17 @@ const SURGE_TABLE = [
 // Remove any previously registered hook to prevent duplicates
 // (safe to re-run this macro each session)
 if (game.wildMagicSurgeHookId !== undefined) {
-  Hooks.off("dnd5e.postUseActivity", game.wildMagicSurgeHookId);
+  Hooks.off("dnd5e.preUseActivity", game.wildMagicSurgeHookId);
   console.log("Wild Magic Surge | Removed previous hook.");
 }
 
 // dnd5e 5.x (FoundryVTT v13): uses the activity system.
-// Hook fires after any activity is used; we filter to Cast activities on spells.
-game.wildMagicSurgeHookId = Hooks.on("dnd5e.postUseActivity", async (activity, usageConfig, results) => {
+// preUseActivity fires after the player confirms the spell dialog but before
+// execution — reliable even when postUseActivity is blocked by activity errors.
+game.wildMagicSurgeHookId = Hooks.on("dnd5e.preUseActivity", async (activity, usageConfig, dialogConfig, messageConfig) => {
   const item = activity.item;
   const actor = activity.actor;
 
-  // Debug: log every activity use so we can confirm the hook is firing
   console.log(`Wild Magic Surge | Hook fired — actor: "${actor?.name}", item type: "${item?.type}", activity type: "${activity?.type}"`);
 
   // Only fire for the configured actor
