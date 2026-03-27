@@ -173,7 +173,7 @@ game.wildMagicRollHandler = async (e) => {
     let colIndex, severity, severityColor;
     if (severityRoll.total <= 3) {
       colIndex = 0; severity = "Extreme"; severityColor = "#ff4444";
-    } else if (severityRoll.total <= 9) {
+    } else if (severityRoll.total <= 14) {
       colIndex = 1; severity = "Moderate"; severityColor = "#ffaa44";
     } else {
       colIndex = 2; severity = "Nuisance"; severityColor = "#aaccff";
@@ -188,7 +188,7 @@ game.wildMagicRollHandler = async (e) => {
     });
     await severityRoll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor }),
-      flavor: `💥 Wild Magic Surge — severity roll (1–3 Extreme, 4–9 Moderate, 10–20 Nuisance)`,
+      flavor: `💥 Wild Magic Surge — severity roll (1–3 Extreme, 4–14 Moderate, 15–20 Nuisance)`,
     });
 
     await ChatMessage.create({
