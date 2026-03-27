@@ -19,8 +19,8 @@ Automates a **building surge pool** mechanic for Wild Magic characters in the **
 ### Features
 
 - Auto-triggers on every spell cast — no manual rolls needed
-- Rolls d20 and posts the result publicly in chat
-- On a surge: rolls d100, looks up the effect from the full standard 5e Wild Magic Surge table, and posts a dramatic chat card
+- Prompts the player with a chat card containing a **Roll d20!** button; the roll posts publicly with full dice animation
+- On a surge: rolls d100 for the table row, then d20 for severity, and posts a result card with the effect text
 - Surge counter persists across sessions (stored as an actor flag)
 - Duplicate-safe: re-running the setup macro won't register multiple hooks
 - Includes a separate reset macro for use after long rests
@@ -68,16 +68,31 @@ Run **Wild Magic Surge — Reset** to drop the pool back to 1.
 
 ---
 
-## Customizing the surge table
+## Surge Table
 
-The full 50-entry surge table lives as a `SURGE_TABLE` array near the top of `wild-magic-surge-setup.js`. Each entry is a plain string — edit any of them to fit your homebrew.
+Uses the **Variant Wild Magic Surge Table** from D&D Wiki:
+
+> [Wild Magic Surge Table, Variant (5e Variant Rule)](https://dandwiki.com/wiki/Wild_Magic_Surge_Table,_Variant_(5e_Variant_Rule))
+
+The table has **100 rows** and **3 severity columns**. On a surge:
+
+1. Roll **d100** — determines the table row (the specific effect category)
+2. Roll **d20** — determines the severity of that effect:
+
+| d20 Roll | Severity | Probability |
+|----------|----------|-------------|
+| 1–3 | **Extreme** | 15% |
+| 4–14 | **Moderate** | 55% |
+| 15–20 | **Nuisance** | 30% |
+
+To swap in a different table, edit the `SURGE_TABLE` array near the top of `wild-magic-surge-setup.js`. Each entry is `[extreme, moderate, nuisance]`.
 
 ---
 
 ## Compatibility
 
 - **System:** dnd5e 5.x (FoundryVTT v13+)
-- Uses the `dnd5e.postUseActivity` hook and the activity system introduced in dnd5e 4.x
+- Uses the `dnd5e.preUseActivity` hook from the activity system introduced in dnd5e 4.x
 - `Roll.evaluate()` called without options — always async in FoundryVTT v13
 
 ---
@@ -86,13 +101,13 @@ The full 50-entry surge table lives as a `SURGE_TABLE` array near the top of `wi
 
 **No surge:**
 > 🌀 **Wild Magic Surge Check**
-> Thorin | Pool: 3 | Rolled: 14 — Safe!
+> Fezzini The Magnificent | Pool: 3 | Rolled: 14 — Safe!
 > Surge pool grows to **4**.
 
 **Surge:**
 > 💥 **WILD MAGIC SURGE!**
-> Thorin has surged!
+> Fezzini The Magnificent has surged!
 > Surge Pool: 4 | Rolled: 2 ≤ 4 — SURGE!
-> d100 Result: 41 (81–82)
-> *You can take one additional action immediately.*
+> Table Row: 83 | Severity: **Moderate** (rolled 9)
+> *You're feeling lucky. For the next hour, any time you make an ability check, roll 1d6 and add the result.*
 > Surge pool reset to **1**.
