@@ -100,8 +100,8 @@ game.wildMagicSurgeHookId = Hooks.on("dnd5e.preUseActivity", async (activity, us
   // Read the current surge pool counter (defaults to 1 if never set)
   const counter = (await actor.getFlag("world", "wildMagicSurgeCounter")) ?? 1;
 
-  // Prompt the player to roll their own d20
-  const rolled = await new Promise((resolve) => {
+  // Prompt the player to roll the d20 inside Foundry
+  const d20Roll = await new Promise((resolve) => {
     new Dialog({
       title: "🌀 Wild Magic Surge Check",
       content: `
@@ -114,22 +114,32 @@ game.wildMagicSurgeHookId = Hooks.on("dnd5e.preUseActivity", async (activity, us
           </p>
         </div>
       `,
-      buttons: Object.fromEntries(
-        Array.from({ length: 20 }, (_, i) => {
-          const val = i + 1;
-          return [String(val), {
-            label: String(val),
-            callback: () => resolve(val),
-          }];
-        })
-      ),
-      default: "20",
+      buttons: {
+        roll: {
+          label: "🎲 Roll d20!",
+          callback: async () => {
+            const roll = await new Roll("1d20").evaluate();
+            await roll.toMessage({
+              speaker: ChatMessage.getSpeaker({ actor }),
+              flavor: `Wild Magic Surge Check (surge on ${counter} or lower)`,
+            });
+            resolve(roll.total);
+          },
+        },
+        cancel: {
+          label: "Cancel",
+          callback: () => resolve(null),
+        },
+      },
+      default: "roll",
       close: () => resolve(null),
-    }, { width: 420 }).render(true);
+    }).render(true);
   });
 
-  // If the player closed the dialog without picking, do nothing
-  if (rolled === null) return;
+  // If the player cancelled, do nothing
+  if (d20Roll === null) return;
+
+  const rolled = d20Roll;
 
   if (rolled <= counter) {
     // ─── SURGE! ──────────────────────────────────────────────
