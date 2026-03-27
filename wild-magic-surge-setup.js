@@ -71,81 +71,48 @@ const SURGE_TABLE = [
 ];
 
 // =============================================================
-// HOOK SETUP — do not edit below this line
+// HOOK & CLICK HANDLER SETUP — do not edit below this line
 // =============================================================
 
-// Remove any previously registered hook to prevent duplicates
-// (safe to re-run this macro each session)
-if (game.wildMagicSurgeHookId !== undefined) {
-  Hooks.off("dnd5e.preUseActivity", game.wildMagicSurgeHookId);
-  console.log("Wild Magic Surge | Removed previous hook.");
+// ── CLICK HANDLER ─────────────────────────────────────────────
+// Handles the "Roll d20!" button embedded in the chat prompt card.
+// Registered on the document once per session so it works across
+// all chat messages without needing renderChatMessage hooks.
+if (game.wildMagicRollHandler) {
+  document.removeEventListener("click", game.wildMagicRollHandler);
 }
 
-// dnd5e 5.x (FoundryVTT v13): uses the activity system.
-// preUseActivity fires after the player confirms the spell dialog but before
-// execution — reliable even when postUseActivity is blocked by activity errors.
-game.wildMagicSurgeHookId = Hooks.on("dnd5e.preUseActivity", async (activity, usageConfig, dialogConfig, messageConfig) => {
-  const item = activity.item;
-  const actor = activity.actor;
+game.wildMagicRollHandler = async (e) => {
+  const btn = e.target.closest("[data-wild-magic-roll]");
+  if (!btn || btn.disabled) return;
 
+  // Disable immediately to prevent double-clicks
+  btn.disabled = true;
+  btn.textContent = "⏳ Rolling...";
 
-  // Only fire for the configured actor
-  if (!actor || actor.name !== ACTOR_NAME) return;
+  const actor = game.actors.get(btn.dataset.actorId);
+  const counter = parseInt(btn.dataset.counter);
+  // Walk up the DOM to find the enclosing chat message ID for cleanup
+  const messageId = btn.closest("[data-message-id]")?.dataset.messageId;
 
-  // Only fire for spells — item.type covers all spell levels including cantrips.
-  // We don't filter by activity.type because spells use many activity types
-  // (save, attack, heal, utility, etc.) depending on the spell.
-  if (item?.type !== "spell") return;
+  if (!actor) return;
 
-  // Read the current surge pool counter (defaults to 1 if never set)
-  const counter = (await actor.getFlag("world", "wildMagicSurgeCounter")) ?? 1;
-
-  // Prompt the player to roll the d20 inside Foundry
-  const d20Roll = await new Promise((resolve) => {
-    new Dialog({
-      title: "🌀 Wild Magic Surge Check",
-      content: `
-        <div style="text-align: center; padding: 8px 0;">
-          <p style="margin: 0 0 6px 0; font-size: 1.1em;">
-            <strong>${actor.name}</strong> — roll a <strong>d20</strong>!
-          </p>
-          <p style="margin: 0; color: #888;">
-            Surge pool: <strong>${counter}</strong> — surge on ${counter} or lower
-          </p>
-        </div>
-      `,
-      buttons: {
-        roll: {
-          label: "🎲 Roll d20!",
-          callback: async () => {
-            const roll = await new Roll("1d20").evaluate();
-            await roll.toMessage({
-              speaker: ChatMessage.getSpeaker({ actor }),
-              flavor: `Wild Magic Surge Check (surge on ${counter} or lower)`,
-            });
-            resolve(roll.total);
-          },
-        },
-        cancel: {
-          label: "Cancel",
-          callback: () => resolve(null),
-        },
-      },
-      default: "roll",
-      close: () => resolve(null),
-    }).render(true);
+  // Roll d20 and post it to chat with flavor text
+  const roll = await new Roll("1d20").evaluate();
+  await roll.toMessage({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    flavor: `🌀 Wild Magic Surge Check — surge on ${counter} or lower`,
   });
+  const rolled = roll.total;
 
-  // If the player cancelled, do nothing
-  if (d20Roll === null) return;
-
-  const rolled = d20Roll;
+  // Delete the prompt card now that the roll is posted
+  const promptMsg = game.messages.get(messageId);
+  if (promptMsg) await promptMsg.delete();
 
   if (rolled <= counter) {
     // ─── SURGE! ──────────────────────────────────────────────
     await actor.setFlag("world", "wildMagicSurgeCounter", 1);
 
-    // Roll d100 and look up the effect
     const d100Roll = await new Roll("1d100").evaluate();
     const tableIndex = Math.ceil(d100Roll.total / 2) - 1;
     const surgeEffect = SURGE_TABLE[tableIndex] ?? "A strange magical effect occurs!";
@@ -219,6 +186,66 @@ game.wildMagicSurgeHookId = Hooks.on("dnd5e.preUseActivity", async (activity, us
       speaker: ChatMessage.getSpeaker({ actor }),
     });
   }
+};
+
+document.addEventListener("click", game.wildMagicRollHandler);
+
+// ── SPELL CAST HOOK ───────────────────────────────────────────
+if (game.wildMagicSurgeHookId !== undefined) {
+  Hooks.off("dnd5e.preUseActivity", game.wildMagicSurgeHookId);
+}
+
+// dnd5e 5.x (FoundryVTT v13): preUseActivity fires after the player confirms
+// the spell dialog but before execution — reliable across all activity types.
+game.wildMagicSurgeHookId = Hooks.on("dnd5e.preUseActivity", async (activity, usageConfig, dialogConfig, messageConfig) => {
+  const item = activity.item;
+  const actor = activity.actor;
+
+  // Only fire for the configured actor
+  if (!actor || actor.name !== ACTOR_NAME) return;
+
+  // Only fire for spells — covers all spell levels including cantrips.
+  if (item?.type !== "spell") return;
+
+  // Read the current surge pool counter (defaults to 1 if never set)
+  const counter = (await actor.getFlag("world", "wildMagicSurgeCounter")) ?? 1;
+
+  // Post a prompt card in chat with an embedded Roll d20! button
+  await ChatMessage.create({
+    content: `
+      <div style="
+        border: 2px solid #334466;
+        border-radius: 8px;
+        padding: 10px;
+        background: #0a0f1a;
+        color: #aabbdd;
+        font-family: serif;
+        text-align: center;
+      ">
+        <h3 style="color: #7799cc; margin: 0 0 6px 0;">🌀 Wild Magic Surge Check</h3>
+        <p style="margin: 0 0 10px 0;">
+          <strong>${actor.name}</strong>
+          &nbsp;|&nbsp;
+          Surge pool: <strong>${counter}</strong> — surge on ${counter} or lower
+        </p>
+        <button
+          data-wild-magic-roll
+          data-actor-id="${actor.id}"
+          data-counter="${counter}"
+          style="
+            background: #1a3366;
+            color: #aaccff;
+            border: 1px solid #4466aa;
+            border-radius: 4px;
+            padding: 6px 18px;
+            font-size: 1em;
+            cursor: pointer;
+          "
+        >🎲 Roll d20!</button>
+      </div>
+    `,
+    speaker: ChatMessage.getSpeaker({ actor }),
+  });
 });
 
 ui.notifications.info(`🌀 Wild Magic Surge Tracker active for "${ACTOR_NAME}"!`);
