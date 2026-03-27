@@ -87,6 +87,9 @@ game.wildMagicSurgeHookId = Hooks.on("dnd5e.postUseActivity", async (activity, u
   const item = activity.item;
   const actor = activity.actor;
 
+  // Debug: log every activity use so we can confirm the hook is firing
+  console.log(`Wild Magic Surge | Hook fired — actor: "${actor?.name}", item type: "${item?.type}", activity type: "${activity?.type}"`);
+
   // Only fire for the configured actor
   if (!actor || actor.name !== ACTOR_NAME) return;
 
