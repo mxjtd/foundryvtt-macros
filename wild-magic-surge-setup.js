@@ -100,9 +100,36 @@ game.wildMagicSurgeHookId = Hooks.on("dnd5e.preUseActivity", async (activity, us
   // Read the current surge pool counter (defaults to 1 if never set)
   const counter = (await actor.getFlag("world", "wildMagicSurgeCounter")) ?? 1;
 
-  // Roll d20 for the surge check (evaluate() is always async in v13)
-  const d20Roll = await new Roll("1d20").evaluate();
-  const rolled = d20Roll.total;
+  // Prompt the player to roll their own d20
+  const rolled = await new Promise((resolve) => {
+    new Dialog({
+      title: "🌀 Wild Magic Surge Check",
+      content: `
+        <div style="text-align: center; padding: 8px 0;">
+          <p style="margin: 0 0 6px 0; font-size: 1.1em;">
+            <strong>${actor.name}</strong> — roll a <strong>d20</strong>!
+          </p>
+          <p style="margin: 0; color: #888;">
+            Surge pool: <strong>${counter}</strong> — surge on ${counter} or lower
+          </p>
+        </div>
+      `,
+      buttons: Object.fromEntries(
+        Array.from({ length: 20 }, (_, i) => {
+          const val = i + 1;
+          return [String(val), {
+            label: String(val),
+            callback: () => resolve(val),
+          }];
+        })
+      ),
+      default: "20",
+      close: () => resolve(null),
+    }, { width: 420 }).render(true);
+  });
+
+  // If the player closed the dialog without picking, do nothing
+  if (rolled === null) return;
 
   if (rolled <= counter) {
     // ─── SURGE! ──────────────────────────────────────────────
