@@ -90,8 +90,10 @@ game.wildMagicSurgeHookId = Hooks.on("dnd5e.postUseActivity", async (activity, u
   // Only fire for the configured actor
   if (!actor || actor.name !== ACTOR_NAME) return;
 
-  // Only fire for spells cast via a Cast activity (includes cantrips)
-  if (item?.type !== "spell" || activity.type !== "cast") return;
+  // Only fire for spells — item.type covers all spell levels including cantrips.
+  // We don't filter by activity.type because spells use many activity types
+  // (save, attack, heal, utility, etc.) depending on the spell.
+  if (item?.type !== "spell") return;
 
   // Read the current surge pool counter (defaults to 1 if never set)
   const counter = (await actor.getFlag("world", "wildMagicSurgeCounter")) ?? 1;
