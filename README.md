@@ -76,8 +76,9 @@ The full 50-entry surge table lives as a `SURGE_TABLE` array near the top of `wi
 
 ## Compatibility
 
-- **System:** dnd5e 3.x (FoundryVTT v11 / v12)
-- **dnd5e 4.x+ note:** If the hook stops firing (due to the activity system introduced in 4.x), see the comment at the bottom of `wild-magic-surge-setup.js` for the one-line fix.
+- **System:** dnd5e 5.x (FoundryVTT v13+)
+- Uses the `dnd5e.postUseActivity` hook and the activity system introduced in dnd5e 4.x
+- `Roll.evaluate()` called without options — always async in FoundryVTT v13
 
 ---
 

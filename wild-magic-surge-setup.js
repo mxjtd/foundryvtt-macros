@@ -5,8 +5,7 @@
 // Run this once per session (or after any page refresh) to
 // activate automatic surge checking on spell casts.
 //
-// COMPATIBILITY: dnd5e 3.x (FoundryVTT v11/v12)
-//   For dnd5e 4.x+ (activity system), see note at bottom.
+// COMPATIBILITY: dnd5e 5.x (FoundryVTT v13+)
 // =============================================================
 
 // ── CONFIGURATION ────────────────────────────────────────────
@@ -78,23 +77,27 @@ const SURGE_TABLE = [
 // Remove any previously registered hook to prevent duplicates
 // (safe to re-run this macro each session)
 if (game.wildMagicSurgeHookId !== undefined) {
-  Hooks.off("dnd5e.useItem", game.wildMagicSurgeHookId);
+  Hooks.off("dnd5e.postUseActivity", game.wildMagicSurgeHookId);
   console.log("Wild Magic Surge | Removed previous hook.");
 }
 
-game.wildMagicSurgeHookId = Hooks.on("dnd5e.useItem", async (item, config, options) => {
+// dnd5e 5.x (FoundryVTT v13): uses the activity system.
+// Hook fires after any activity is used; we filter to Cast activities on spells.
+game.wildMagicSurgeHookId = Hooks.on("dnd5e.postUseActivity", async (activity, usageConfig, results) => {
+  const item = activity.item;
+  const actor = activity.actor;
+
   // Only fire for the configured actor
-  const actor = item.actor;
   if (!actor || actor.name !== ACTOR_NAME) return;
 
-  // Only fire for spells (level 0 = cantrips, which are included per config)
-  if (item.type !== "spell") return;
+  // Only fire for spells cast via a Cast activity (includes cantrips)
+  if (item?.type !== "spell" || activity.type !== "cast") return;
 
   // Read the current surge pool counter (defaults to 1 if never set)
   const counter = (await actor.getFlag("world", "wildMagicSurgeCounter")) ?? 1;
 
-  // Roll d20 for the surge check
-  const d20Roll = await new Roll("1d20").evaluate({ async: true });
+  // Roll d20 for the surge check (evaluate() is always async in v13)
+  const d20Roll = await new Roll("1d20").evaluate();
   const rolled = d20Roll.total;
 
   if (rolled <= counter) {
@@ -102,7 +105,7 @@ game.wildMagicSurgeHookId = Hooks.on("dnd5e.useItem", async (item, config, optio
     await actor.setFlag("world", "wildMagicSurgeCounter", 1);
 
     // Roll d100 and look up the effect
-    const d100Roll = await new Roll("1d100").evaluate({ async: true });
+    const d100Roll = await new Roll("1d100").evaluate();
     const tableIndex = Math.ceil(d100Roll.total / 2) - 1;
     const surgeEffect = SURGE_TABLE[tableIndex] ?? "A strange magical effect occurs!";
     const rollRange = `${tableIndex * 2 + 1}–${tableIndex * 2 + 2}`;
@@ -179,14 +182,3 @@ game.wildMagicSurgeHookId = Hooks.on("dnd5e.useItem", async (item, config, optio
 
 ui.notifications.info(`🌀 Wild Magic Surge Tracker active for "${ACTOR_NAME}"!`);
 console.log(`Wild Magic Surge | Hook registered (ID: ${game.wildMagicSurgeHookId}) for "${ACTOR_NAME}".`);
-
-// =============================================================
-// NOTE FOR dnd5e 4.x+ (activity system, FoundryVTT v13+):
-// If "dnd5e.useItem" stops firing, replace the hook name with:
-//   "dnd5e.postUseActivity"
-// and change the callback to:
-//   async (activity, usageConfig, results) => {
-//     const item = activity.item;
-//     ...
-//   }
-// =============================================================
